@@ -147,11 +147,5 @@ Digital_Soul/
     ├── trainer.py         # Training Loop (AdamW + SmoothL1Loss)
     └── utils.py           # Helper Functions
 
-## 📜 Dataset
-This project uses the **ChaLearn First Impressions V2** dataset.
-* **Size:** ~10,000 video clips (15s average).
-* **Labels:** Big Five Personality Traits (0.0 - 1.0).
-*Note: Dataset must be obtained via official challenge channels.*
-
 ## 📄 License
 This project is for academic purposes.
