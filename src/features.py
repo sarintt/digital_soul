@@ -16,51 +16,55 @@ class FeatureEngine:
         # Whisper
         self.whisper = whisper.load_model("base", device=self.device)
         
-        # ModernBERT
+        # ModernBERT / RoBERTa (ตาม config.MODEL_NAME)
         self.tokenizer = AutoTokenizer.from_pretrained(config.MODEL_NAME)
         self.text_model = AutoModel.from_pretrained(config.MODEL_NAME).to(self.device)
         self.text_model.eval()
 
     def process_file(self, audio_path, filename):
-        """
-        Extracts and saves linguistic and acoustic features for a single audio file.
-
-        This method processes the input audio through two parallel streams:
-        1. Acoustic: Uses Librosa to extract MFCCs (saved as *_acou.npy).
-        2. Linguistic: Uses Whisper for ASR and RoBERTa for text embeddings (saved as *_ling.npy).
-
-        Args:
-            audio_path (str): The full file path to the .wav audio file.
-            filename (str): The basename of the file (e.g., "video123.wav"), used for naming output files.
-
-        Returns:
-            None: This method saves files to disk directly and does not return values.
-        """
+       
         ling_path = os.path.join(config.FEATURES_DIR, filename.replace(".wav", "_ling.npy"))
         acou_path = os.path.join(config.FEATURES_DIR, filename.replace(".wav", "_acou.npy"))
 
+        # ถ้ามีทั้ง ling + acou แล้ว ข้าม
         if os.path.exists(ling_path) and os.path.exists(acou_path):
-            return # Skip
+            return  # Skip
 
         # --- ACOUSTIC (Librosa) ---
-        # Load max 15s to keep sizes manageable
+        # Load max MAX_DURATION sec
         y, sr = librosa.load(audio_path, sr=config.SAMPLE_Rate, duration=config.MAX_DURATION)
-        # Pad if too short (critical for LSTM)
+
+        # Pad / trim ให้ยาวเท่ากันเสมอ (สำคัญมากสำหรับ LSTM)
         target_len = config.SAMPLE_Rate * config.MAX_DURATION
         if len(y) < target_len:
             y = librosa.util.fix_length(y, size=target_len)
         else:
             y = y[:target_len]
-            
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        np.save(acou_path, mfcc)
-
-        # --- LINGUISTIC (Whisper + RoBERTa) ---
-        # 1. Transcribe
-        res = self.whisper.transcribe(audio_path)
-        text = res['text'].strip() or "silence"
         
-        # 2. Embed
+        # 1) MFCC พื้นฐาน
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)           # (13, T)
+
+        # 2) Delta MFCC (ความเปลี่ยนแปลงเวลา)
+        mfcc_delta = librosa.feature.delta(mfcc)                     # (13, T)
+
+        # 3) Delta-Delta MFCC (ความเปลี่ยนแปลงของ delta)
+        mfcc_delta2 = librosa.feature.delta(mfcc, order=2)           # (13, T)
+
+        # 4) RMS Energy (ความดังต่อเฟรม)
+        rms = librosa.feature.rms(y=y)                               # (1, T)
+
+        # Stack ให้ได้ shape (40, T)
+        acou_feat = np.vstack([mfcc, mfcc_delta, mfcc_delta2, rms])  # (13+13+13+1 = 40, T)
+
+        # Save acoustic feature
+        np.save(acou_path, acou_feat)
+
+        # --- LINGUISTIC (Whisper + RoBERTa/ModernBERT) ---
+        # 1. Transcribe ด้วย Whisper
+        res = self.whisper.transcribe(audio_path)
+        text = res.get("text", "").strip() or "silence"
+        
+        # 2. Embed ด้วย Transformer (CLS Token)
         inputs = self.tokenizer(
             text, 
             return_tensors="pt", 
@@ -72,13 +76,9 @@ class FeatureEngine:
         with torch.no_grad():
             outputs = self.text_model(**inputs)
 
-        # ModernBERT's [CLS] token is usually at index 0.
-        last_hidden_state = outputs.last_hidden_state
-        
-        # Take the embedding of the [CLS] token (index 0)
-        vec = last_hidden_state[:, 0, :].cpu().numpy().squeeze()
+        last_hidden_state = outputs.last_hidden_state   # (B, L, H)
+        vec = last_hidden_state[:, 0, :].cpu().numpy().squeeze()  # CLS -> (H,)
 
-        # Save [CLS] pooling vector
         np.save(ling_path, vec)
 
     def run_batch(self):

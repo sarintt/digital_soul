@@ -23,9 +23,9 @@ MODEL_NAME = "answerdotai/ModernBERT-base"
 MAX_TEXT_LEN = 2048
 
 BATCH_SIZE = 32
-LEARNING_RATE = 1e-5
-EPOCHS = 200
-HIDDEN_DIM = 256 # Size of the acoustic LSTM memory
+LEARNING_RATE = 1e-4
+EPOCHS = 500
+HIDDEN_DIM = 64 # Size of the acoustic LSTM memory
 DROPOUT = 0.2
 
 # --- HARDWARE ---
@@ -35,3 +35,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 os.makedirs(FEATURES_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+
+MODALITY_DROPOUT = True      # เปิด/ปิด ฟีเจอร์นี้ได้
+DROP_TEXT_PROB = 0.15        # โอกาสปิด text ต่อ batch (แนะนำ 0.1–0.2)
+DROP_AUDIO_PROB = 0.15       # โอกาสปิด audio ต่อ batch

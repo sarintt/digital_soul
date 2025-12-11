@@ -88,24 +88,20 @@ Launch the web interface to test the model with your own voice.
 ## 📂 Project Structure
 ```
 Digital_Soul/
-├── app.py                   # Gradio Web Application
-├── config.py                # Global Configuration (Hyperparameters, Paths)
-├── main.py                  # CLI Entry Point
-├── evaluate_all.py          # Master Evaluation Script
-├── pyproject.toml           # Dependencies & Build Config
-├── REPORT.md                # Full Academic Evaluation Report
+├── app.py                 # Gradio Web Application
+├── config.py              # Hyperparameters & Settings
+├── main.py                # Command-line Pipeline Controller
+├── evaluate.py            # Model Evaluation & Ablation
+├── checkpoints/           # Saved Model Weights
+├── results/               # Charts & Plots
 │
-├── checkpoints/             # Saved Model Weights (.pth)
-├── results/                 # Evaluation Charts & Graphs
-│
-└── src/                     # Source Code
-    ├── dataset.py           # PyTorch Data Loader
-    ├── features.py          # Whisper & ModernBERT Logic
-    ├── model.py             # Neural Network Architecture (Fusion)
-    ├── preprocessing.py     # Audio Conversion
-    ├── trainer.py           # Training Loop
-    └── utils.py             # Helpers
-```
+└── src/
+    ├── dataset.py         # PyTorch Dataset Loader
+    ├── features.py        # Whisper + ModernBERT + MFCC40 Extractor
+    ├── model.py           # BiLSTM + Attention + Gated Fusion Model
+    ├── preprocessing.py   # Audio Conversion Utilities
+    ├── trainer.py         # Training Loop (AdamW + SmoothL1Loss)
+    └── utils.py           # Helper Functions
 
 ## 📜 Dataset
 This project uses the **ChaLearn First Impressions V2** dataset.
